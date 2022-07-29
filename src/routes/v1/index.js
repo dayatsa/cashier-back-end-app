@@ -7,10 +7,10 @@ const { route } = require('./user.route');
 const routes = express.Router();
 
 const defaultRoutes = [
-//     {
-//         path: '/auth',
-//         route: authRoute
-//     },
+    {
+        path: '/auth',
+        route: authRoute
+    },
     {
         path: '/users',
         route: userRoute

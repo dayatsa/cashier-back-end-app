@@ -33,8 +33,20 @@ const getUserById = async (id) => {
     const result = await pool.query(query);
 
     if (!result.rows.length) {
-        throw new ApiError(httpStatus.NOT_FOUND, 'User tidak ditemukan');
+        throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
     }
+
+    return result.rows[0];
+};
+
+
+const getUserByEmail = async (email) => {
+    const query = {
+        text: 'SELECT id, name, email, is_email_verified, password FROM users WHERE email = $1',
+        values: [email],
+    };
+
+    const result = await pool.query(query);
 
     return result.rows[0];
 };
@@ -72,7 +84,7 @@ const deleteUserById = async (userId) => {
 module.exports = {
     createUser,
     getUserById,
+    getUserByEmail,
     updateUserById,
     deleteUserById,
-    //   UsersService,
 };
