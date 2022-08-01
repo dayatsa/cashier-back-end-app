@@ -2,6 +2,7 @@ const express = require('express');
 const authValidation = require('../../validations/auth.validation');
 const authController = require('../../controllers/auth.controller');
 const validate = require('../../middlewares/validate');
+const auth = require('../../middlewares/auth');
 
 const routes = new express.Router();
 
@@ -11,7 +12,7 @@ routes.post('/logout', validate(authValidation.logout), authController.logout);
 routes.post('/refresh-tokens', validate(authValidation.refreshTokens), authController.refreshTokens);
 routes.post('/forgot-password', validate(authValidation.forgotPassword), authController.forgotPassword);
 routes.post('/reset-password', validate(authValidation.resetPassword), authController.resetPassword);
-// routes.post('/send-verification-email', auth(), authController.sendVerificationEmail);
-routes.post('/verify-email', validate(authValidation.verifyEmail), authController.verifyEmail);
+routes.post('/send-verification-email', auth(), authController.sendVerificationEmail);
+routes.get('/verify-email', validate(authValidation.verifyEmail), authController.verifyEmail);
 
 module.exports = routes;

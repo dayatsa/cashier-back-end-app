@@ -49,7 +49,8 @@ const getUser = catchAsync(async (req, res) => {
 
 const updateUser = catchAsync(async (req, res) => {
   try {
-    await userService.updateUserById(req.params.userId, req.body);
+    const hashedPassword = await bcrypt.hash(req.body.password, 10);
+    await userService.updateUserById(req.params.userId, { name: req.body.name, email: req.body.email, isEmailVerified: req.body.isEmailVerified, password: hashedPassword });
     const response = {
       status: 'success',
       message: 'Succesfully update user'

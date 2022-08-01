@@ -29,6 +29,22 @@ const saveToken = async (token, userId, expires, type, blacklisted = false) => {
 };
 
 
+const verifyToken = async (token, type) => {
+    const payload = jwt.verify(token, process.env.JWT_SECRET);
+    const query = {
+        text: 'SELECT * FROM authentications WHERE user_id = $1 AND blacklisted = $2',
+        values: [payload.sub, false],
+    };
+
+    const result = await pool.query(query);
+
+    if (!result.rows.length) {
+        throw new Error('Token not found');
+    }
+    return result.rows[0];
+};
+
+
 const generateAuthTokens = async (userId) => {
     const accessTokenExpires = moment().add(process.env.JWT_ACCESS_EXPIRATION_MINUTES, 'minutes');
     const accessToken = generateToken(userId, accessTokenExpires, 'access');
@@ -50,11 +66,31 @@ const generateAuthTokens = async (userId) => {
 };
 
 
+const generateResetPasswordToken = async (email) => {
+    const user = await userService.getUserByEmail(email);
+    if (!user) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'No users found with this email');
+    }
+    const expires = moment().add(process.env.JWT_RESET_PASSWORD_EXPIRATION_MINUTES, 'minutes');
+    const resetPasswordToken = generateToken(user.id, expires, 'reset');
+    await saveToken(resetPasswordToken, user.id, expires, 'reset');
+    return resetPasswordToken;
+};
+
+
+const generateVerifyEmailToken = async (user) => {
+    const expires = moment().add(process.env.JWT_VERIFY_EMAIL_EXPIRATION_MINUTES, 'minutes');
+    const verifyEmailToken = generateToken(user.id, expires, 'verify');
+    await saveToken(verifyEmailToken, user.id, expires, 'verify');
+    return verifyEmailToken;
+};
+
+
 module.exports = {
     generateToken,
-    // saveToken,
-    // verifyToken,
+    saveToken,
+    verifyToken,
     generateAuthTokens,
-    // generateResetPasswordToken,
-    // generateVerifyEmailToken,
+    generateResetPasswordToken,
+    generateVerifyEmailToken,
 };

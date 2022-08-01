@@ -53,10 +53,23 @@ const getUserByEmail = async (email) => {
 
 
 const updateUserById = async (userId, updateBody) => {
-    const hashedPassword = await bcrypt.hash(updateBody.password, 10);
     const query = {
         text: 'UPDATE users SET name = $1, email = $2, password = $3, is_email_verified = $4 WHERE id = $5 RETURNING id',
-        values: [updateBody.name, updateBody.email, hashedPassword, updateBody.isEmailVerified, userId],
+        values: [updateBody.name, updateBody.email, updateBody.password, updateBody.isEmailVerified, userId],
+    };
+
+    const result = await pool.query(query);
+
+    if (!result.rows.length) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+    }
+};
+
+
+const updateUserWithoutPassById = async (userId, updateBody) => {
+    const query = {
+        text: 'UPDATE users SET name = $1, email = $2, is_email_verified = $3 WHERE id = $4 RETURNING id',
+        values: [updateBody.name, updateBody.email, updateBody.isEmailVerified, userId],
     };
 
     const result = await pool.query(query);
@@ -86,5 +99,6 @@ module.exports = {
     getUserById,
     getUserByEmail,
     updateUserById,
+    updateUserWithoutPassById,
     deleteUserById,
 };

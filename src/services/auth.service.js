@@ -3,7 +3,10 @@ const tokenService = require('./token.service');
 const userService = require('./user.service');
 const ApiError = require('../utils/ApiError');
 const bcrypt = require('bcrypt');
+const { Pool } = require('pg');
 
+
+const pool = new Pool()
 
 const loginUserWithEmailAndPassword = async (email, password) => {
   const user = await userService.getUserByEmail(email);
@@ -14,73 +17,70 @@ const loginUserWithEmailAndPassword = async (email, password) => {
   return user.id;
 };
 
-/**
- * Logout
- * @param {string} refreshToken
- * @returns {Promise}
- */
+
 const logout = async (refreshToken) => {
-  const refreshTokenDoc = await Token.findOne({ token: refreshToken, type: tokenTypes.REFRESH, blacklisted: false });
-  if (!refreshTokenDoc) {
+  const query = {
+    text: 'DELETE FROM authentications WHERE token = $1 AND type = $2 RETURNING token',
+    values: [refreshToken, 'refresh'],
+  };
+
+  const result = await pool.query(query);
+
+  if (!result.rows.length) {
     throw new ApiError(httpStatus.NOT_FOUND, 'Not found');
   }
-  await refreshTokenDoc.remove();
 };
 
-/**
- * Refresh auth tokens
- * @param {string} refreshToken
- * @returns {Promise<Object>}
- */
+
 const refreshAuth = async (refreshToken) => {
-  try {
-    const refreshTokenDoc = await tokenService.verifyToken(refreshToken, tokenTypes.REFRESH);
-    const user = await userService.getUserById(refreshTokenDoc.user);
-    if (!user) {
-      throw new Error();
-    }
-    await refreshTokenDoc.remove();
-    return tokenService.generateAuthTokens(user);
-  } catch (error) {
-    throw new ApiError(httpStatus.UNAUTHORIZED, 'Please authenticate');
+  const refreshTokenDoc = await tokenService.verifyToken(refreshToken, 'refresh');
+  const user = await userService.getUserById(refreshTokenDoc.user_id);
+  if (!user) {
+    throw new ApiError(httpStatus.UNAUTHORIZED, 'Please authenticate');;
   }
+  await logout(refreshToken);
+  return user;
 };
 
-/**
- * Reset password
- * @param {string} resetPasswordToken
- * @param {string} newPassword
- * @returns {Promise}
- */
+
 const resetPassword = async (resetPasswordToken, newPassword) => {
-  try {
-    const resetPasswordTokenDoc = await tokenService.verifyToken(resetPasswordToken, tokenTypes.RESET_PASSWORD);
-    const user = await userService.getUserById(resetPasswordTokenDoc.user);
-    if (!user) {
-      throw new Error();
-    }
-    await userService.updateUserById(user.id, { password: newPassword });
-    await Token.deleteMany({ user: user.id, type: tokenTypes.RESET_PASSWORD });
-  } catch (error) {
+  const resetPasswordTokenDoc = await tokenService.verifyToken(resetPasswordToken, 'reset');
+  const user = await userService.getUserById(resetPasswordTokenDoc.user_id);
+  const hashedPassword = await bcrypt.hash(newPassword, 10);
+  await userService.updateUserById(user.id, { name: user.name, email: user.email, isEmailVerified: user.is_email_verified, password: hashedPassword });
+
+  const query = {
+    text: 'DELETE FROM authentications WHERE user_id = $1 AND type = $2 RETURNING token',
+    values: [user.id, 'reset'],
+  };
+
+  const result = await pool.query(query);
+
+  if (!user) {
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Password reset failed');
   }
 };
 
-/**
- * Verify email
- * @param {string} verifyEmailToken
- * @returns {Promise}
- */
+
+
 const verifyEmail = async (verifyEmailToken) => {
   try {
-    const verifyEmailTokenDoc = await tokenService.verifyToken(verifyEmailToken, tokenTypes.VERIFY_EMAIL);
-    const user = await userService.getUserById(verifyEmailTokenDoc.user);
+    const verifyEmailTokenDoc = await tokenService.verifyToken(verifyEmailToken, 'verify');
+    const user = await userService.getUserById(verifyEmailTokenDoc.user_id);
     if (!user) {
       throw new Error();
     }
-    await Token.deleteMany({ user: user.id, type: tokenTypes.VERIFY_EMAIL });
-    await userService.updateUserById(user.id, { isEmailVerified: true });
+    const query = {
+      text: 'DELETE FROM authentications WHERE user_id = $1 AND type = $2 RETURNING token',
+      values: [user.id, 'verify'],
+    };
+  
+    const result = await pool.query(query);
+
+    await userService.updateUserWithoutPassById(user.id, { name: user.name, email: user.email, isEmailVerified: true, password: user.password });
+
   } catch (error) {
+    console.log(error)
     throw new ApiError(httpStatus.UNAUTHORIZED, 'Email verification failed');
   }
 };
