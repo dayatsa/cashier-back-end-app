@@ -1,6 +1,7 @@
 const httpStatus = require('http-status');
 const ApiError = require('../utils/ApiError');
 const catchAsync = require('../utils/catchAsync');
+const bcrypt = require('bcrypt');
 const { userService } = require('../services');
 
 const createUser = catchAsync(async (req, res) => {
@@ -8,10 +9,27 @@ const createUser = catchAsync(async (req, res) => {
     const userId = await userService.createUser(req.body);
     const response = {
       status: 'success',
-      message: 'Successfully added new user',
       data: {
         userId,
       },
+    }
+    res.status(httpStatus.CREATED).send(response);
+  } catch (error) {
+    response = {
+      "status": "fail",
+      "message": error.message
+    }
+    res.status(httpStatus.BAD_REQUEST).send(response)
+  }
+});
+
+
+const getUsers = catchAsync(async (req, res) => {
+  try {
+    const data = await userService.queryUsers();
+    const response = {
+      status: 'success',
+      data
     }
     res.status(httpStatus.CREATED).send(response);
   } catch (error) {
@@ -33,6 +51,7 @@ const getUser = catchAsync(async (req, res) => {
           "id": user.id,
           "name": user.name,
           "email": user.email,
+          "role": user.role,
           "isEmailVerified": user.is_email_verified,
         },
       }
@@ -65,6 +84,28 @@ const updateUser = catchAsync(async (req, res) => {
   }
 });
 
+
+const updateRoleUser = catchAsync(async (req, res) => {
+  try {
+    const userRole = await userService.updateRoleUserById(req.body);
+    const response = {
+      status: 'success',
+      data: {
+        userId: req.body.userId,
+        role: userRole
+      }
+    }
+    res.send(response);
+  } catch (error) {
+    response = {
+      "status": "fail",
+      "message": error.message
+    }
+    res.status(httpStatus.BAD_REQUEST).send(response)
+  }
+});
+
+
 const deleteUser = catchAsync(async (req, res) => {
   try {
     await userService.deleteUserById(req.params.userId);
@@ -84,7 +125,9 @@ const deleteUser = catchAsync(async (req, res) => {
 
 module.exports = {
   createUser,
+  getUsers,
   getUser,
   updateUser,
+  updateRoleUser,
   deleteUser,
 };

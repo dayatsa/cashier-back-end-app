@@ -29,6 +29,26 @@ const saveToken = async (token, userId, expires, type, blacklisted = false) => {
 };
 
 
+const deleteToken = async (token, type) => {
+    const query = {
+        text: 'DELETE FROM authentications WHERE token = $1 AND type = $2 RETURNING token',
+        values: [token, type],
+    };
+
+    return await pool.query(query);
+};
+
+
+const deleteTokenByUserId = async (userId, type) => {
+    const query = {
+        text: 'DELETE FROM authentications WHERE user_id = $1 AND type = $2',
+        values: [userId, type],
+    };
+
+    await pool.query(query);
+};
+
+
 const verifyToken = async (token, type) => {
     const payload = jwt.verify(token, process.env.JWT_SECRET);
     const query = {
@@ -51,6 +71,9 @@ const generateAuthTokens = async (userId) => {
 
     const refreshTokenExpires = moment().add(process.env.JWT_REFRESH_EXPIRATION_DAYS, 'days');
     const refreshToken = generateToken(userId, refreshTokenExpires, 'refresh');
+
+    await deleteTokenByUserId(userId, 'refresh');
+
     await saveToken(refreshToken, userId, refreshTokenExpires, 'refresh');
 
     return {
@@ -89,6 +112,8 @@ const generateVerifyEmailToken = async (user) => {
 module.exports = {
     generateToken,
     saveToken,
+    deleteToken,
+    deleteTokenByUserId,
     verifyToken,
     generateAuthTokens,
     generateResetPasswordToken,

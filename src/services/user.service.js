@@ -11,8 +11,8 @@ const createUser = async (userBody) => {
     const id = `user-${nanoid(16)}`;
     const hashedPassword = await bcrypt.hash(userBody.password, 10);
     const query = {
-        text: 'INSERT INTO users VALUES($1, $2, $3, $4, $5) RETURNING id',
-        values: [id, userBody.name, userBody.email, hashedPassword, false],
+        text: 'INSERT INTO users VALUES($1, $2, $3, $4, $5, $6) RETURNING id',
+        values: [id, userBody.name, userBody.email, hashedPassword, 'user', false],
     };
 
     const result = await pool.query(query);
@@ -24,9 +24,25 @@ const createUser = async (userBody) => {
 };
 
 
+const queryUsers = async () => {
+    const query = {
+        text: 'SELECT id, name, email, role, is_email_verified FROM users',
+        values: [],
+    };
+
+    const result = await pool.query(query);
+
+    if (!result.rows.length) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+    }
+
+    return result.rows;
+};
+
+
 const getUserById = async (id) => {
     const query = {
-        text: 'SELECT id, name, email, is_email_verified FROM users WHERE id = $1',
+        text: 'SELECT id, name, email, role, is_email_verified FROM users WHERE id = $1',
         values: [id],
     };
 
@@ -42,7 +58,7 @@ const getUserById = async (id) => {
 
 const getUserByEmail = async (email) => {
     const query = {
-        text: 'SELECT id, name, email, is_email_verified, password FROM users WHERE email = $1',
+        text: 'SELECT id, name, email, role, is_email_verified, password FROM users WHERE email = $1',
         values: [email],
     };
 
@@ -80,6 +96,26 @@ const updateUserWithoutPassById = async (userId, updateBody) => {
 };
 
 
+const updateRoleUserById = async (requestBody) => {
+    if (requestBody.role !== "user" && requestBody.role !== "admin") {
+        throw new ApiError(httpStatus.FORBIDDEN, 'Role must be user or admin')
+    }
+
+    const query = {
+        text: 'UPDATE users SET role = $1 WHERE id = $2 RETURNING role',
+        values: [requestBody.role, requestBody.userId],
+    };
+
+    const result = await pool.query(query);
+
+    if (!result.rows.length) {
+        throw new ApiError(httpStatus.NOT_FOUND, 'User not found');
+    }
+    console.log(result.rows[0])
+    return result.rows[0].role;
+};
+
+
 const deleteUserById = async (userId) => {
     const query = {
         text: 'DELETE FROM users WHERE id = $1 RETURNING id',
@@ -93,12 +129,14 @@ const deleteUserById = async (userId) => {
     }
 };
 
-// module.exports = UsersService;
+
 module.exports = {
     createUser,
+    queryUsers,
     getUserById,
     getUserByEmail,
     updateUserById,
     updateUserWithoutPassById,
+    updateRoleUserById,
     deleteUserById,
 };
